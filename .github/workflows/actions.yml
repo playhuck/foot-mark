@@ -1,0 +1,102 @@
+# name: Node.js CI
+
+# on:
+#   push:
+#       branches: [ "main" ]
+
+# jobs:
+#   build:
+
+#     runs-on: ubuntu-latest
+
+#     strategy:
+#       matrix:
+#         node-version: [16.x]
+#         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+ 
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Use Node.js ${{ matrix.node-version }}
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: ${{ matrix.node-version }}
+#           cache: 'npm'
+
+#       - name: setting .env
+#         env:
+#           PORT: ${{secrets.PORT}}
+#           SALT: ${{secrets.SALT}}
+
+#           DB_HOST: ${{secrets.DB_HOST}}
+#           DB_PORT: ${{secrets.DB_PORT}}
+#           DB_USERNAME: ${{secrets.DB_USERNAME}}
+#           DB_PASSWORD: ${{secrets.DB_PASSWORD}}
+#           DB_DATABASE: ${{secrets.DB_DATABASE}}
+
+#           JWT_ACCESS_EXPIRED_IN: ${{secrets.JWT_ACCESS_EXPIRED_IN}}
+
+#           NODE_ENV: ${{secrets.NODE_ENV}}
+
+#         run: |
+#           # echo는 ubuntu 에서 사용되는 vi(편집기)를 안써도 .env파일를 생성하며 안에 입력을 해주는 명령어
+#           pwd
+#           touch .env
+#           echo "PORT=${{secrets.PORT}}" >> .env
+#           echo "SALT=${{secrets.SALT}}" >> .env
+
+#           echo "DB_HOST=${{secrets.DB_HOST}}" >> .env
+#           echo "DB_PORT=${{secrets.DB_PORT}}" >> .env
+#           echo "DB_USERNAME=${{secrets.DB_USERNAME}}" >> .env
+#           echo "DB_PASSWORD=${{secrets.DB_PASSWORD}}" >> .env
+#           echo "DB_DATABASE=${{secrets.DB_DATABASE}}" >> .env
+
+#           echo "JWT_ACCESS_EXPIRED_IN=${{secrets.JWT_ACCESS_EXPIRED_IN}}" >> .env
+
+#           echo "NODE_ENV=${{secrets.NODE_ENV}}" >> .env
+          
+#           cat .env
+
+#       - name: Cachce node_modules
+#         uses: actions/cache@v2
+#         id: node-cache
+#         env:
+#           cache-name: cache-node-modules
+#         with:
+#           path: node_modules
+#           key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+#           restore-keys: |
+#             ${{ runner.os }}-node-modules-
+#       - name: create TNODE_ENV
+#         run: |
+#           echo "export type TNODE_ENV = 'prod' | 'dev' | 'test'" > src/common/constants/types/t.node.env.ts
+#       - name: build server files
+#         working-directory: ./
+#         run: |
+#           npm ci
+#           npm run build --if-present
+#       - name: Create Secrets Directory
+#         run: |
+#           mkdir secrets
+#           echo "${{ secrets.JWT_PRIVATE_PEM }}" > secrets/jwt.private.pem
+#           echo "${{ secrets.JWT_PUBLIC_PEM }}" > secrets/jwt.public.pem
+#           echo "${{ secrets.CF_S3_PRIVATE_PEM }}" > secrets/cf.s3.private.pem
+#           echo "${{ secrets.CF_S3_PUBLIC_PEM }}" > secrets/cf.s3.public.pem
+#       - name: zip file
+#         run: zip -r ./build-be.zip dist/ scripts/ .env appspec.yml package-lock.json package.json README.md tsconfig.json tsconfig.build.json .eslintrc.js .prettierrc nest-cli.json LICENSE secrets/ docs/
+
+#       - name: AWS configure credentials
+#         uses: aws-actions/configure-aws-credentials@v1
+#         with:
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-region: ${{ secrets.AWS_REGION }}
+
+#       - name: upload to S3
+#         run: aws s3 cp --region ap-northeast-2 ./build-be.zip s3://course-deploy/backend/build-be.zip
+
+#       - name: deploy with AWS codeDeploy
+#         run: aws deploy create-deployment
+#           --application-name deploy-pipe-ec2-back
+#           --deployment-config-name CodeDeployDefault.AllAtOnce
+#           --deployment-group-name deploy-pipe-back-app
+#           --s3-location bucket=course-deploy,key=backend/build-be.zip,bundleType=zip
