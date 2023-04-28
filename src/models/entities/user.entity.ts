@@ -9,7 +9,7 @@ export class User {
   user_id: string;
 
   @Column('varchar')
-  user_name: string;
+  user_nickname: string;
 
   @Column('varchar')
   user_password: string;
