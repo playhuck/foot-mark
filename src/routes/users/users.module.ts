@@ -10,6 +10,7 @@ import * as path from 'path';
 import { User } from 'src/models/entities/user.entity';
 import { UsersController } from './users.controller';
 import { AuthService } from './auth.service';
+import { UserRepository } from './users.repository';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { AuthService } from './auth.service';
     TypeOrmModule.forFeature([User]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, JwtStrategyPassport, AuthService],
-  exports: [UsersService, JwtModule, PassportModule],
+  providers: [UsersService, JwtStrategyPassport, AuthService, UserRepository],
+  exports: [UsersService, JwtModule, PassportModule, AuthService],
 })
 export class UsersModule {}

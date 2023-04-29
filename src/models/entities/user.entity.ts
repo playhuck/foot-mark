@@ -2,14 +2,14 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
-  @PrimaryGeneratedColumn('increment')
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  user_uuid: string;
 
   @Column('varchar')
   user_id: string;
 
   @Column('varchar')
-  user_name: string;
+  user_nickname: string;
 
   @Column('varchar')
   user_password: string;
@@ -18,17 +18,17 @@ export class User {
     type: 'varchar',
     nullable: true,
   })
-  user_twitter: string;
+  user_twitter: string | null;
 
   @Column({
     type: 'varchar',
     nullable: true,
   })
-  user_instagram: string;
+  user_instagram: string | null;
 
   @Column({
     type: 'varchar',
     nullable: true,
   })
-  user_facebook: string;
+  user_facebook: string | null;
 }

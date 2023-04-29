@@ -1,4 +1,16 @@
-import { Controller } from '@nestjs/common';
+import { Body, Post, Controller } from "@nestjs/common";
+import { UsersService } from "./users.service";
+import { AuthService } from "./auth.service";
+import { UsersSignupDto } from "src/models/dtos/users/users.signup.dto";
+import { User } from "src/models/entities/user.entity";
 
-@Controller('users')
-export class UsersController {}
+@Controller("users")
+export class UsersController {
+  constructor(private usersService: UsersService, private authService: AuthService) {}
+
+  @Post("/signup")
+  async signup(@Body() body: UsersSignupDto): Promise<User> {
+    const signup = await this.authService.signup(body);
+    return signup;
+  }
+}

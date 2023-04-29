@@ -33,8 +33,8 @@ export class JwtStrategyPassport extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     /** JWT 페이로드에서 id 추출 */
 
-    const { id } = payload;
-    const user: User = await this.usersRepository.findOne({ where: { id } });
+    const { userUuid } = payload;
+    const user: User = await this.usersRepository.findOne({ where: { user_uuid : userUuid } });
     /** usersRepository를 사용하여 username으로 사용자를 찾음 */
     console.log(user);
     /** 사용자를 찾지 못한 경우 UnauthorizedException 발생 */
