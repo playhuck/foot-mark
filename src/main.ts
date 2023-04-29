@@ -8,7 +8,7 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  // app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors();
   app.useGlobalPipes(new ValidationPipe());
 

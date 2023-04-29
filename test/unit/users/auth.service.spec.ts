@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AuthService } from "src/routes/users/auth.service";
-import { INestApplication, ConflictException } from "@nestjs/common";
+import { INestApplication, ConflictException, BadRequestException } from "@nestjs/common";
 import { faker } from "@faker-js/faker";
 import { User } from "src/models/entities/user.entity";
 import { UsersSignupDto } from "src/models/dtos/users/users.signup.dto";
@@ -9,6 +9,7 @@ import { AppModule } from "src/app.module";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { v4 } from "uuid";
 import { UserRepository } from "src/routes/users/users.repository";
+import { BcryptProvider } from "src/common/providers/bcrypt.provider";
 
 describe("AuthService", () => {
   let app: INestApplication;
@@ -17,6 +18,7 @@ describe("AuthService", () => {
   let dataSource: DataSource;
   let userRepository: UserRepository;
   let usersSignupDto: UsersSignupDto;
+  let bcryptProvider: BcryptProvider;
 
   let queryRunner: QueryRunner;
   let queryRunnerManager: EntityManager;
@@ -50,6 +52,8 @@ describe("AuthService", () => {
     queryRunner = dataSource.createQueryRunner();
     queryRunnerManager = queryRunner.manager;
 
+    bcryptProvider = module.get<BcryptProvider>(BcryptProvider);
+
     return app;
   });
 
@@ -60,6 +64,9 @@ describe("AuthService", () => {
       password: password,
       passwordCheck: password,
     };
+    /** bcryptProvider의 hassPassword가 호출되면, password를 return */
+    service["bcryptProvider"].hashPassword = jest.fn((password: string) => password);
+
     await queryRunner.connect();
   });
 
@@ -74,6 +81,23 @@ describe("AuthService", () => {
       user_facebook: null,
     };
 
+    it("비밀번호는 일치해야 한다, PWD-001", async () => {
+      usersSignupDto.passwordCheck = "NotMatchedPassword";
+      const matchedPassword = await bcryptProvider.matchedPassword(usersSignupDto.password, usersSignupDto.passwordCheck);
+      jest.spyOn(bcryptProvider, "matchedPassword").mockResolvedValueOnce(matchedPassword);
+
+      try {
+        await service.signup(usersSignupDto);
+
+      } catch (err) {
+
+        expect(err).toBeDefined();
+        expect(err instanceof BadRequestException && err["message"]).toBe("Password do not match");
+        expect(err instanceof BadRequestException && err["status"]).toBe(400);
+        expect(err instanceof BadRequestException && err["response"]["error"]).toBe("PWD-001");
+      }
+    })
+
     it("아이디는 중복될 수 없다, AUTH-001", async () => {
       usersSignupDto.userId = "userId";
       const isUserByUserId = await userRepository.isUserByUserId(queryRunnerManager, usersSignupDto.userId);
@@ -82,6 +106,8 @@ describe("AuthService", () => {
       try {
         await service.signup(usersSignupDto);
       } catch (err: unknown) {
+        console.log(err);
+        
         expect(err).toBeDefined();
         expect(err instanceof ConflictException && err["message"]).toBe("UserId Already Exist");
         expect(err instanceof ConflictException && err["status"]).toBe(409);
@@ -106,12 +132,6 @@ describe("AuthService", () => {
     });
 
     it("회원가입 후, 유저를 반환한다.", async () => {
-      const usersSignupDto: UsersSignupDto = {
-        userId: userId,
-        nickName: nickName,
-        password: password,
-        passwordCheck: password,
-      };
       jest.spyOn(service, "signup").mockResolvedValue(user);
 
       const result = await service.signup(usersSignupDto);
@@ -122,6 +142,7 @@ describe("AuthService", () => {
 
   afterAll(async () => {
     await app.close();
+    await module.close();
     await queryRunner.release();
   });
 

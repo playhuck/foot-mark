@@ -15,6 +15,6 @@ export class UserRepository extends Repository<User> {
       nickName,
     ]);
 
-    return isUserByNickname > 0 ? true : false;
+    return isUserByNickname.length > 0 ? true : false;
   }
 }

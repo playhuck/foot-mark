@@ -11,6 +11,7 @@ import { User } from 'src/models/entities/user.entity';
 import { UsersController } from './users.controller';
 import { AuthService } from './auth.service';
 import { UserRepository } from './users.repository';
+import { BcryptProvider } from 'src/common/providers/bcrypt.provider';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { UserRepository } from './users.repository';
     TypeOrmModule.forFeature([User]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, JwtStrategyPassport, AuthService, UserRepository],
+  providers: [UsersService, JwtStrategyPassport, AuthService, UserRepository, BcryptProvider],
   exports: [UsersService, JwtModule, PassportModule, AuthService],
 })
 export class UsersModule {}
