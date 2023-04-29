@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AuthService } from "src/routes/users/auth.service";
-import { INestApplication, ConflictException, BadRequestException } from "@nestjs/common";
+import { INestApplication, ConflictException, BadRequestException, InternalServerErrorException } from "@nestjs/common";
 import { faker } from "@faker-js/faker";
 import { User } from "src/models/entities/user.entity";
 import { UsersSignupDto } from "src/models/dtos/users/users.signup.dto";
-import { DataSource, EntityManager, QueryRunner, Repository } from "typeorm";
+import { DataSource, EntityManager, QueryFailedError, QueryRunner, Repository } from "typeorm";
 import { AppModule } from "src/app.module";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { v4 } from "uuid";
@@ -83,20 +83,21 @@ describe("AuthService", () => {
 
     it("비밀번호는 일치해야 한다, PWD-001", async () => {
       usersSignupDto.passwordCheck = "NotMatchedPassword";
-      const matchedPassword = await bcryptProvider.matchedPassword(usersSignupDto.password, usersSignupDto.passwordCheck);
+      const matchedPassword = await bcryptProvider.matchedPassword(
+        usersSignupDto.password,
+        usersSignupDto.passwordCheck,
+      );
       jest.spyOn(bcryptProvider, "matchedPassword").mockResolvedValueOnce(matchedPassword);
 
       try {
         await service.signup(usersSignupDto);
-
       } catch (err) {
-
         expect(err).toBeDefined();
         expect(err instanceof BadRequestException && err["message"]).toBe("Password do not match");
         expect(err instanceof BadRequestException && err["status"]).toBe(400);
         expect(err instanceof BadRequestException && err["response"]["error"]).toBe("PWD-001");
       }
-    })
+    });
 
     it("아이디는 중복될 수 없다, AUTH-001", async () => {
       usersSignupDto.userId = "userId";
@@ -107,7 +108,7 @@ describe("AuthService", () => {
         await service.signup(usersSignupDto);
       } catch (err: unknown) {
         console.log(err);
-        
+
         expect(err).toBeDefined();
         expect(err instanceof ConflictException && err["message"]).toBe("UserId Already Exist");
         expect(err instanceof ConflictException && err["status"]).toBe(409);
@@ -122,7 +123,6 @@ describe("AuthService", () => {
 
       try {
         await service.signup(usersSignupDto);
-        
       } catch (err: unknown) {
         expect(err).toBeDefined();
         expect(err instanceof ConflictException && err["message"]).toBe("Nickname Already Exist");
@@ -134,9 +134,15 @@ describe("AuthService", () => {
     it("회원가입 후, 유저를 반환한다.", async () => {
       jest.spyOn(service, "signup").mockResolvedValue(user);
 
-      const result = await service.signup(usersSignupDto);
+      try {
+        const result = await service.signup(usersSignupDto);
 
-      expect(result).toBe(user);
+        expect(result).toBe(user);
+      } catch (err) {
+        expect(err instanceof QueryFailedError && err["message"]).toBe(`DATABASE ERROR : ${err.message}`);
+        expect(err instanceof InternalServerErrorException && err["message"]).toBe(`SERVER ERROR : ${err.message}`);
+        expect(err instanceof InternalServerErrorException && err["response"]["error"]).toBe("Internal Server Error");
+      }
     });
   });
 
@@ -148,6 +154,5 @@ describe("AuthService", () => {
 
   afterEach(async () => {
     jest.clearAllMocks();
-  })
-})
-
+  });
+});
