@@ -29,8 +29,6 @@ export class AuthService {
         await this.usersRepo.isUserByUserId(queryRunnerManager, userId),
         await this.usersRepo.isUserByNickname(queryRunnerManager, nickName)
       ])  
-      console.log("Nick                          asdasdsadsadasdasdasd:", isUserByNickname);
-      console.log("USER                           asdasdasdsad:", isUserByUserId);
       
       if(isUserByUserId) {
         throw new ConflictException("UserId Already Exist", "AUTH-001");

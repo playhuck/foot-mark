@@ -96,6 +96,7 @@ describe("AuthService", () => {
 
       try {
         await service.signup(usersSignupDto);
+        
       } catch (err: unknown) {
         expect(err).toBeDefined();
         expect(err instanceof ConflictException && err["message"]).toBe("Nickname Already Exist");
@@ -126,5 +127,6 @@ describe("AuthService", () => {
 
   afterEach(async () => {
     jest.clearAllMocks();
-  });
-});
+  })
+})
+
