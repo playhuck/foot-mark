@@ -1,5 +1,4 @@
 import { IsString, IsNotEmpty } from 'class-validator';
-import { BadRequestException } from "@nestjs/common";
 
 export class UsersSignupDto {
   @IsString()

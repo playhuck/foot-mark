@@ -1,10 +1,16 @@
-import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from "@nestjs/common";
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { UsersSignupDto } from "src/models/dtos/users/users.signup.dto";
-import { User } from "src/models/entities/user.entity";
+import { UsersSigninDto, UsersSignupDto, User } from "src/models/_loader";
 import { DataSource, Repository, QueryFailedError } from "typeorm";
 import { UserRepository } from "./users.repository";
 import { BcryptProvider } from "src/common/providers/bcrypt.provider";
+import { ERROR_MESSAGE_LIST, ErrorCode } from "src/constants/error_codes/error.code";
 
 @Injectable()
 export class AuthService {
@@ -15,7 +21,7 @@ export class AuthService {
     private readonly bcryptProvider: BcryptProvider,
   ) {}
 
-  async signup(dto: UsersSignupDto): Promise<any> {
+  async signup(dto: UsersSignupDto): Promise<User> {
     const { userId, nickName, password, passwordCheck } = dto;
     const queryRunner = this.dataSource.createQueryRunner();
     const queryRunnerManager = queryRunner.manager;
@@ -23,18 +29,17 @@ export class AuthService {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
-      const matchedPassword = await this.bcryptProvider.matchedPassword(password, passwordCheck);
-      if (!matchedPassword) throw new BadRequestException("Password do not match", "PWD-001");
-      const hashedPassword = this.bcryptProvider.hashPassword(password);
-
-      const [isUserByUserId, isUserByNickname] = await Promise.all([
+      const [matchedPassword, isUserByUserId, isUserByNickname] = await Promise.all([
+        await this.bcryptProvider.matchedPassword(password, passwordCheck),
         await this.usersRepo.isUserByUserId(queryRunnerManager, userId),
         await this.usersRepo.isUserByNickname(queryRunnerManager, nickName),
       ]);
 
-      if (isUserByUserId) throw new ConflictException("UserId Already Exist", "AUTH-001");
+      if (!matchedPassword) throw new BadRequestException(ERROR_MESSAGE_LIST["PWD-001"], ErrorCode.PwdSignupMismatch);
+      if (isUserByUserId) throw new ConflictException(ERROR_MESSAGE_LIST["AUTH-001"], ErrorCode.AuthUserExists);
+      if (isUserByNickname) throw new ConflictException(ERROR_MESSAGE_LIST["AUTH-002"], ErrorCode.AuthNicknameExists);
 
-      if (isUserByNickname) throw new ConflictException("Nickname Already Exist", "AUTH-002");
+      const hashedPassword = this.bcryptProvider.hashPassword(password);
 
       const create = queryRunnerManager.create(User, {
         user_id: userId,
@@ -56,6 +61,32 @@ export class AuthService {
       }
     } catch (err) {
       await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async signin(dto: UsersSigninDto): Promise<{ accessToken: string }> {
+    const { userId } = dto;
+    const inputPassword = dto.password;
+    const queryRunner = this.dataSource.createQueryRunner();
+    const queryRunnerManager = queryRunner.manager;
+    try {
+      await queryRunner.connect();
+
+      const findSignInDtoByUserId = await this.usersRepo.findUserByUserId(queryRunnerManager, userId);
+      if (findSignInDtoByUserId === null)
+        throw new UnauthorizedException(ERROR_MESSAGE_LIST["AUTH-003"], ErrorCode.AuthUserNotExists);
+
+      const { password }= findSignInDtoByUserId;
+
+      const comparedPassword = await this.bcryptProvider.comparedPassword(inputPassword, password);
+      if(!comparedPassword) throw new UnauthorizedException(ERROR_MESSAGE_LIST["PWD-002"], ErrorCode.PwdDbMismatch);
+
+      
+      return;
+    } catch (err) {
       throw err;
     } finally {
       await queryRunner.release();

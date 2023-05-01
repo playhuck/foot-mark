@@ -38,7 +38,7 @@ export class JwtStrategyPassport extends PassportStrategy(Strategy) {
     /** usersRepository를 사용하여 username으로 사용자를 찾음 */
     console.log(user);
     /** 사용자를 찾지 못한 경우 UnauthorizedException 발생 */
-    if (!user) throw new UnauthorizedException('user 객체를 찾을 수 없습니다.');
+    if (!user) throw new UnauthorizedException('권한이 없는 유저입니다.', "VERIFY-001");
 
     /** 사용자 객체 반환 */
     return user;
