@@ -7,7 +7,7 @@ import { UsersSigninDto } from "src/models/_loader";
 
 @Controller("users")
 export class UsersController {
-  constructor(private usersService: UsersService, private authService: AuthService) {}
+  constructor(private usersService: UsersService, private authService: AuthService) { }
 
   @Post("/signup")
   async signup(@Body() body: UsersSignupDto): Promise<User> {
@@ -17,7 +17,12 @@ export class UsersController {
 
   @Post("/signin")
   async signin(@Body() body: UsersSigninDto): Promise<any> {
-    const signin = await this.authService.signin(body);
-    return ;
+    try {
+      const signin = await this.authService.signin(body);
+      return signin;
+    } catch (err) {
+
+      throw err
+    }
   }
 }

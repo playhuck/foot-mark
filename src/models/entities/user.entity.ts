@@ -2,33 +2,64 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  user_uuid: string;
-
-  @Column('varchar')
-  user_id: string;
-
-  @Column('varchar')
-  user_nickname: string;
-
-  @Column('varchar')
-  user_password: string;
+  @PrimaryGeneratedColumn({
+    name: 'user_uuid'
+  })
+  userUuid: string;
 
   @Column({
+    name: 'user_id',
     type: 'varchar',
-    nullable: true,
+    length: 50
   })
-  user_twitter: string | null;
+  userId: string;
 
   @Column({
+    name: 'user_nickname',
     type: 'varchar',
-    nullable: true,
+    length: 50
   })
-  user_instagram: string | null;
+  userNickname: string;
 
   @Column({
+    name: 'user_password',
+    type: 'varchar',
+    length: 256
+  })
+  userPassword: string;
+
+  @Column({
+    name: 'user_twitter',
     type: 'varchar',
     nullable: true,
+    length: 256
   })
-  user_facebook: string | null;
+  userTwitter: string | null;
+
+  @Column({
+    name: 'user_instagram',
+    type: 'varchar',
+    nullable: true,
+    length: 256
+  })
+  userInstagram: string | null;
+
+  @Column({
+    name: 'user_facebook',
+    type: 'varchar',
+    nullable: true,
+    length: 256
+  })
+  userFacebook: string | null;
+}
+
+
+export class SigninPacket {
+
+  userId: string;
+  password: string;
+  constructor(partial: Partial<User>){
+    this.userId = partial.userId;
+    this.password = partial.userPassword;
+  }
 }

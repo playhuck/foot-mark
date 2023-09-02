@@ -11,6 +11,7 @@ import { DataSource, Repository, QueryFailedError } from "typeorm";
 import { UserRepository } from "./users.repository";
 import { BcryptProvider } from "src/common/providers/bcrypt.provider";
 import { ERROR_MESSAGE_LIST, ErrorCode } from "src/constants/error_codes/error.code";
+import { JwtProvider } from "src/common/providers/jwt.provider";
 
 @Injectable()
 export class AuthService {
@@ -19,7 +20,8 @@ export class AuthService {
     private readonly usersRepo: UserRepository,
     private readonly dataSource: DataSource,
     private readonly bcryptProvider: BcryptProvider,
-  ) {}
+    private readonly jwtProvider: JwtProvider
+  ) { }
 
   async signup(dto: UsersSignupDto): Promise<User> {
     const { userId, nickName, password, passwordCheck } = dto;
@@ -42,9 +44,9 @@ export class AuthService {
       const hashedPassword = this.bcryptProvider.hashPassword(password);
 
       const create = queryRunnerManager.create(User, {
-        user_id: userId,
-        user_nickname: nickName,
-        user_password: hashedPassword,
+        userId,
+        userNickname: nickName,
+        userPassword: hashedPassword,
       });
 
       try {
@@ -68,28 +70,29 @@ export class AuthService {
   }
 
   async signin(dto: UsersSigninDto): Promise<{ accessToken: string }> {
-    const { userId } = dto;
-    const inputPassword = dto.password;
-    const queryRunner = this.dataSource.createQueryRunner();
-    const queryRunnerManager = queryRunner.manager;
     try {
-      await queryRunner.connect();
-
-      const findSignInDtoByUserId = await this.usersRepo.findUserByUserId(queryRunnerManager, userId);
+      const { userId } = dto;
+      const inputPassword = dto.password;
+      
+      const findSignInDtoByUserId = await this.usersRepo.findUserByUserId(userId);
+      
       if (findSignInDtoByUserId === null)
         throw new UnauthorizedException(ERROR_MESSAGE_LIST["AUTH-003"], ErrorCode.AuthUserNotExists);
+      const { userPassword, userUuid } = findSignInDtoByUserId;
+      const comparedPassword = await this.bcryptProvider.comparedPassword(inputPassword, userPassword);
+      if (!comparedPassword) throw new UnauthorizedException(ERROR_MESSAGE_LIST["PWD-002"], ErrorCode.PwdDbMismatch);
 
-      const { password }= findSignInDtoByUserId;
+      const token = await this.jwtProvider.signAccessToken({
+        type : 'AccessToken',
+        userUuid
+      });
 
-      const comparedPassword = await this.bcryptProvider.comparedPassword(inputPassword, password);
-      if(!comparedPassword) throw new UnauthorizedException(ERROR_MESSAGE_LIST["PWD-002"], ErrorCode.PwdDbMismatch);
+      return { accessToken : token };
 
-      
-      return;
     } catch (err) {
+
       throw err;
-    } finally {
-      await queryRunner.release();
+
     }
   }
 }

@@ -1,4 +1,4 @@
-import * as bcryptjs from "bcryptjs";
+import bcryptjs from "bcryptjs";
 import { Injectable, BadRequestException } from "@nestjs/common";
 
 @Injectable()
@@ -11,8 +11,10 @@ export class BcryptProvider {
   public async comparedPassword(inputPassword: string, existPassword: string): Promise<boolean> {
     try {
       return await bcryptjs.compare(inputPassword, existPassword);
-    } catch (err) {
-      throw new BadRequestException("비밀번호가 일치하지 않습니다.", "PWD-002");
+    } catch (e) {
+
+      throw e;
+      
     }
   }
 

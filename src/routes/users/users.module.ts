@@ -4,14 +4,15 @@ import { PassportModule } from '@nestjs/passport/dist';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategyPassport } from 'src/common/passports/jwt.passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 
 import { User } from 'src/models/entities/user.entity';
 import { UsersController } from './users.controller';
 import { AuthService } from './auth.service';
 import { UserRepository } from './users.repository';
 import { BcryptProvider } from 'src/common/providers/bcrypt.provider';
+import { JwtProvider } from 'src/common/providers/jwt.provider';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { BcryptProvider } from 'src/common/providers/bcrypt.provider';
     TypeOrmModule.forFeature([User]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, JwtStrategyPassport, AuthService, UserRepository, BcryptProvider],
-  exports: [UsersService, JwtModule, PassportModule, AuthService],
+  providers: [UsersService, JwtStrategyPassport, AuthService, UserRepository, BcryptProvider, JwtProvider],
+  exports: [UsersService, JwtModule, PassportModule, AuthService, JwtProvider],
 })
 export class UsersModule {}

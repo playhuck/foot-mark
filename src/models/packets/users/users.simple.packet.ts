@@ -1,5 +1,5 @@
-import { User } from "src/models/_loader";
 import { RowDataPacket } from "mysql2";
+
 export interface UsersSimplePacket extends RowDataPacket {
     userId : string;
     nickName : string;

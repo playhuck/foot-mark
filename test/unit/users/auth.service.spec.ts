@@ -22,26 +22,28 @@ import { BcryptProvider } from "src/common/providers/bcrypt.provider";
 import { UsersSignupDto } from "src/models/dtos/users/users.signup.dto";
 import { UsersSigninDto } from "src/models/dtos/users/users.login.dto";
 import { ERROR_MESSAGE_LIST, ErrorCode } from "src/constants/error_codes/error.code";
-import { UserFakeDtoGenerator } from "test/_fake.datas/users.fake.dto";
-import { UsersSimplePacket } from "src/models/packets/users/users.simple.packet";
-import { RowDataPacket } from "mysql2";
+import { UserFakeGenerator } from "../../_fake.datas/users.fake";
+import { async } from "rxjs";
+import { JwtProvider } from "src/common/providers/jwt.provider";
 
 describe("AuthService", () => {
   let app: INestApplication;
   let module: TestingModule;
   let service: AuthService;
-  let dataSource: DataSource;
+
+  let user: User;
   let usersRepo: UserRepository;
   let usersSignupDto: UsersSignupDto;
   let usersSigninDto: UsersSigninDto;
 
   let bcryptProvider: BcryptProvider;
-  let userFakeDtoGenerator: UserFakeDtoGenerator;
+  let userFakeGenerator: UserFakeGenerator;
 
+  let dataSource: DataSource;
   let queryRunner: QueryRunner;
   let queryRunnerManager: EntityManager;
 
-  let findUser: UsersSimplePacket;
+  let findUser: User;
 
   beforeAll(async () => {
     module = await Test.createTestingModule({
@@ -69,30 +71,29 @@ describe("AuthService", () => {
 
     bcryptProvider = module.get<BcryptProvider>(BcryptProvider);
 
-    userFakeDtoGenerator = new UserFakeDtoGenerator();
+    userFakeGenerator = new UserFakeGenerator();
 
     return app;
   });
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     await queryRunner.connect();
   });
 
   describe("signup", () => {
     beforeEach(async () => {
-      usersSignupDto = userFakeDtoGenerator.getUsersSignupDto();
+      usersSignupDto = await userFakeGenerator.getUsersSignupDto();
+      const userUuid = v4();
+      user = {
+        userUuid,
+        userId: usersSignupDto.userId,
+        userNickname: usersSignupDto.nickName,
+        userPassword: usersSignupDto.password,
+        userTwitter: null,
+        userInstagram: null,
+        userFacebook: null,
+      };
     });
-    const userUuid = v4();
-
-    let user: User = {
-      user_uuid: userUuid,
-      user_id: usersSignupDto.userId,
-      user_nickname: usersSignupDto.nickName,
-      user_password: usersSignupDto.password,
-      user_twitter: null,
-      user_instagram: null,
-      user_facebook: null,
-    };
 
     it("아이디는 중복될 수 없다, AUTH-001", async () => {
       usersSignupDto.userId = "userId";
@@ -132,49 +133,91 @@ describe("AuthService", () => {
       const result = await service.signup(usersSignupDto);
 
       expect(result).toBe(user);
+
     });
   });
 
   describe("signin", () => {
     beforeEach(async () => {
-      usersSigninDto = userFakeDtoGenerator.getUsersSigninDto();
-      // findUser = userFakeDtoGenerator.
+      try {
+
+        usersSigninDto = await userFakeGenerator.getUsersSigninDto();
+
+      } catch (err) {
+
+        throw err;
+
+      }
     });
     it(`${ERROR_MESSAGE_LIST["AUTH-003"]}, ${ErrorCode.AuthUserNotExists}`, async () => {
-      usersSigninDto.userId = faker.internet.email();
-      const findUserByUserId = await usersRepo.findUserByUserId(queryRunnerManager, usersSigninDto.userId);
+      usersSigninDto.userId = faker.random.word();
+      const findUserByUserId = await usersRepo.findUserByUserId(usersSigninDto.userId);
       jest.spyOn(usersRepo, "findUserByUserId").mockResolvedValue(findUserByUserId);
 
       try {
-        service.signin(usersSigninDto);
+        await service.signin(usersSigninDto);
       } catch (err) {
         expect(err).toBeDefined();
         expect(err instanceof UnauthorizedException && err["message"]).toBe(ERROR_MESSAGE_LIST["AUTH-003"]);
-        expect(err instanceof ConflictException && err["status"]).toBe(401);
-        expect(err instanceof ConflictException && err["response"]["error"]).toBe(ErrorCode.AuthUserNotExists);
+        expect(err instanceof UnauthorizedException && err["status"]).toBe(401);
+        expect(err instanceof UnauthorizedException && err["response"]["error"]).toBe(ErrorCode.AuthUserNotExists);
       }
     });
 
-    it(`[DB] 비밀번호가 일치하지 않습니다. PWD-002`, async () => {
+    it(`${ERROR_MESSAGE_LIST["PWD-002"]}`, async () => {
+      findUser = await userFakeGenerator.getUserSimplePacket()
       usersSigninDto.password = faker.internet.password();
-      const hashedPassword = "$2a$10$ZT3801RsLkJzlXWxufcgB.cuAmAKr6eIXNVQ0w8rTC5UGCuIVU9Fa";
-      usersRepo["findUserByUserId"] = jest.fn(
-        async(): Promise<UsersSimplePacket | null> => findUser
-      )
-      const comparedPassword = bcryptProvider.comparedPassword(usersSigninDto.password, hashedPassword);
-      jest.spyOn(bcryptProvider, "comparedPassword").mockResolvedValue(comparedPassword);
+      jest.spyOn(usersRepo, "findUserByUserId").mockReturnValue(Promise.resolve(findUser));
+      
+      try {
+        
+        await service.signin(usersSigninDto);
+      } catch (err) {
+        
+        expect(err).toBeDefined();
+        expect(err instanceof UnauthorizedException && err["message"]).toBe(ERROR_MESSAGE_LIST["PWD-002"]);
+        expect(err instanceof UnauthorizedException && err["status"]).toBe(401);
+        expect(err instanceof UnauthorizedException && err["response"]["error"]).toBe(ErrorCode.PwdDbMismatch);
+
+      }
+    });
+
+    it(`${ERROR_MESSAGE_LIST["VERIFY-002"]}`, async () => {
 
       try {
-        service.signin(usersSigninDto);
-      } catch (err) {}
+
+        JwtProvider.JWT_ACCESS_EXPIRED_IN = null;
+        
+        await service.signin(usersSigninDto);
+
+      } catch (err) {
+
+        expect(err).toBeDefined();
+        expect(err instanceof InternalServerErrorException && err['message']).toBe(ERROR_MESSAGE_LIST["VERIFY-002"]);
+        expect(err instanceof InternalServerErrorException && err['status']).toBe(500);
+        expect(err instanceof InternalServerErrorException && err["response"]["error"]).toBe(ErrorCode.VerifyInvalidJwtEnv);
+
+        JwtProvider.JWT_ACCESS_EXPIRED_IN = "12h";
+
+      }
+    })
+
+    it(`${ERROR_MESSAGE_LIST["AUTH-004"]}`, async () => {
+
+      try {
+        const result = await service.signin(usersSigninDto);
+        
+        expect(result['accessToken']).toBeDefined();
+      } catch (err) {
+
+        throw err;
+
+      }
     });
-    it("로그인 후, 토큰을 반환한다", async () => {});
   });
 
   afterAll(async () => {
-    await app.close();
-    await module.close();
-    await queryRunner.release();
+    await queryRunner.connection.destroy();
   });
 
   afterEach(async () => {
